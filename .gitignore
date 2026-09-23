@@ -1,0 +1,81 @@
+# ===========================================
+# SecureVision AI Backend - .gitignore
+# ===========================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# --- Environment variables ---
+.env
+.env.local
+.env.*.local
+*.env
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Testing / Coverage ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# --- Database / Local files ---
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+instance/
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Build artifacts ---
+*.spec
+
+# --- Deployment secrets ---
+google-credentials.json
+firebase-service-account.json
+*.pem
+*.key
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
