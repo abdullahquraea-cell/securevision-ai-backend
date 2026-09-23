@@ -32,7 +32,16 @@ class User(Base):
 
     password_hash = Column(
         String(255),
-        nullable=False
+        nullable=True  # nullable لأن مستخدمي Firebase ليس لديهم password_hash
+    )
+
+
+    # Firebase UID — يُملأ عند تسجيل دخول مستخدم عبر Firebase
+    firebase_uid = Column(
+        String(128),
+        unique=True,
+        nullable=True,
+        index=True
     )
 
 

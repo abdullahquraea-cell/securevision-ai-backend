@@ -3,20 +3,24 @@ import os
 from io import BytesIO
 from datetime import datetime
 
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.lib.units import cm
-from reportlab.lib.enums import TA_RIGHT, TA_CENTER
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-)
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.lib.enums import TA_RIGHT, TA_CENTER
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Paragraph,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    REPORTLAB_OK = True
+except ImportError:
+    REPORTLAB_OK = False
 
 import arabic_reshaper
 from bidi.algorithm import get_display
@@ -27,32 +31,37 @@ from bidi.algorithm import get_display
 FONT_NAME = "ArabicFont"
 FONT_BOLD = "ArabicFont-Bold"
 
-# مرشّحات الخط (عادي، عريض) — نختار أول ما هو موجود
-_FONT_CANDIDATES = [
-    # خط Amiri العربي (منزّل داخل الحاوية) — الأفضل
-    ("/usr/share/fonts/arabic/Amiri-Regular.ttf",
-     "/usr/share/fonts/arabic/Amiri-Bold.ttf"),
-    # ويندوز (التطوير المحلي) — Arial يدعم العربية
-    (r"C:\Windows\Fonts\arial.ttf", r"C:\Windows\Fonts\arialbd.ttf"),
-    # احتياطي أخير (لاتيني فقط)
-    ("/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-     "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"),
-]
+if REPORTLAB_OK:
+    # مرشّحات الخط (عادي، عريض) — نختار أول ما هو موجود
+    _FONT_CANDIDATES = [
+        # خط Amiri العربي (منزّل داخل الحاوية) — الأفضل
+        ("/usr/share/fonts/arabic/Amiri-Regular.ttf",
+         "/usr/share/fonts/arabic/Amiri-Bold.ttf"),
+        # ويندوز (التطوير المحلي) — Arial يدعم العربية
+        (r"C:\Windows\Fonts\arial.ttf", r"C:\Windows\Fonts\arialbd.ttf"),
+        # احتياطي أخير (لاتيني فقط)
+        ("/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+         "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"),
+    ]
 
-_regular = None
-_bold = None
-for _reg, _bd in _FONT_CANDIDATES:
-    if os.path.exists(_reg):
-        _regular = _reg
-        _bold = _bd if os.path.exists(_bd) else _reg
-        break
+    _regular = None
+    _bold = None
+    for _reg, _bd in _FONT_CANDIDATES:
+        if os.path.exists(_reg):
+            _regular = _reg
+            _bold = _bd if os.path.exists(_bd) else _reg
+            break
 
-if _regular:
-    pdfmetrics.registerFont(TTFont(FONT_NAME, _regular))
-    pdfmetrics.registerFont(TTFont(FONT_BOLD, _bold))
-    pdfmetrics.registerFontFamily(FONT_NAME, normal=FONT_NAME, bold=FONT_BOLD)
+    if _regular:
+        pdfmetrics.registerFont(TTFont(FONT_NAME, _regular))
+        pdfmetrics.registerFont(TTFont(FONT_BOLD, _bold))
+        pdfmetrics.registerFontFamily(FONT_NAME, normal=FONT_NAME, bold=FONT_BOLD)
+    else:
+        # حل أخير حتى لا ينهار التطبيق (بلا دعم عربي كامل)
+        FONT_NAME = "Helvetica"
+        FONT_BOLD = "Helvetica-Bold"
 else:
-    # حل أخير حتى لا ينهار التطبيق (بلا دعم عربي كامل)
+    # reportlab غير مثبّت — قيم افتراضية لا تُستخدَم فعلياً
     FONT_NAME = "Helvetica"
     FONT_BOLD = "Helvetica-Bold"
 
@@ -66,11 +75,11 @@ def ar(text) -> str:
 
 
 SEVERITY_COLORS = {
-    "critical": colors.HexColor("#dc2626"),
-    "high": colors.HexColor("#ea580c"),
-    "medium": colors.HexColor("#ca8a04"),
-    "low": colors.HexColor("#16a34a"),
-    "info": colors.HexColor("#0284c7"),
+    "critical": colors.HexColor("#dc2626") if REPORTLAB_OK else None,
+    "high": colors.HexColor("#ea580c") if REPORTLAB_OK else None,
+    "medium": colors.HexColor("#ca8a04") if REPORTLAB_OK else None,
+    "low": colors.HexColor("#16a34a") if REPORTLAB_OK else None,
+    "info": colors.HexColor("#0284c7") if REPORTLAB_OK else None,
 }
 
 SEVERITY_LABELS = {
@@ -99,6 +108,10 @@ def _clean_title(title: str) -> str:
 
 def generate_report(project_name: str, findings: list) -> bytes:
     """توليد تقرير أمني PDF احترافي بالعربية لمشروع."""
+    if not REPORTLAB_OK:
+        raise RuntimeError(
+            "reportlab is not installed. Install with: pip install reportlab arabic-reshaper python-bidi"
+        )
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(

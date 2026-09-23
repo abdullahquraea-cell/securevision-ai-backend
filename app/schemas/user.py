@@ -23,6 +23,14 @@ class UserResponse(BaseModel):
 
     is_active: bool
 
+    firebase_uid: str | None = None
+
+    is_verified: bool | None = None
+
+    organization_id: int | None = None
+
+    org_role: str | None = None
+
 
     class Config:
         from_attributes = True

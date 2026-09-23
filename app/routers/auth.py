@@ -38,6 +38,8 @@ from app.security.jwt import (
     ALGORITHM
 )
 
+from app.security.firebase_admin_init import verify_firebase_token, is_firebase_ready
+
 from app.security.ratelimit import rate_limit
 
 
@@ -72,6 +74,75 @@ def get_current_user(
         detail="Invalid or expired token"
     )
 
+    # ===== 1) محاولة التحقق من Firebase ID Token أولاً =====
+    decoded_fb = verify_firebase_token(token) if is_firebase_ready() else None
+
+    if decoded_fb is not None:
+        uid = decoded_fb.get("uid")
+        email = decoded_fb.get("email")
+        email_verified = decoded_fb.get("email_verified", False)
+
+        if not email:
+            raise credentials_error
+
+        # ابحث عن المستخدم بـ firebase_uid أو email
+        user = db.query(User).filter(
+            (User.firebase_uid == uid) | (User.email == email)
+        ).first()
+
+        if user is None:
+            # مستخدم جديد من Firebase — أنشئه تلقائياً
+            username = (
+                decoded_fb.get("name")
+                or (email.split("@")[0] if email else f"user_{uid[:8]}")
+            )
+            user = User(
+                username=username,
+                email=email,
+                password_hash=None,  # لا يوجد كلمة مرور — Firebase يديرها
+                firebase_uid=uid,
+                role="analyst",
+                is_verified=email_verified,
+                is_active=True,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+            # أنشئ مؤسسة تلقائياً لكل حساب جديد (نفس سلوك register العادي)
+            try:
+                org = Organization(
+                    name=f"مؤسسة {user.username}",
+                    owner_id=user.id,
+                    plan="free",
+                )
+                db.add(org)
+                db.commit()
+                db.refresh(org)
+                user.organization_id = org.id
+                user.org_role = "owner"
+                db.commit()
+            except Exception as e:
+                print(f"[AUTH] Auto-org creation failed for {email}: {e}")
+
+        else:
+            # حدّث firebase_uid لو لم يكن موجوداً
+            if not user.firebase_uid:
+                user.firebase_uid = uid
+                db.commit()
+            # حدّث حالة التحقق بالبريد
+            if email_verified and not user.is_verified:
+                user.is_verified = True
+                db.commit()
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=403,
+                detail="حسابك معطّل. تواصل مع المسؤول."
+            )
+        return user
+
+    # ===== 2) fallback للـ JWT الأصلي (لو المستخدم من نظام الباك-إند القديم) =====
     try:
         payload = jwt.decode(
             token,
